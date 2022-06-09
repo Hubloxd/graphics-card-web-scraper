@@ -13,7 +13,6 @@ App looking for searched graphics card
 <ul>
 <li>Make it work ✅</li>
 <li>Make it work with: morele.net, x-kom and ✅</li>
-<li>Allow user to choose between different streams ⬜</li>
 </ul>
 <h2>Used technologies</h2>
 <ul>

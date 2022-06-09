@@ -1,5 +1,7 @@
+from os import system
+from dataclasses import dataclass
 from urllib import parse
-import requests
+from requests import get
 from bs4 import BeautifulSoup
 
 E_SHOPS = [
@@ -15,62 +17,54 @@ HEADERS = {
 }
 
 
+@dataclass()
 class VideoCard:
-    def __init__(self, model: str):
-        self.model: str = model
-        self.url: str = str()
-        self.price: float = float()
-        self.shop: str = str()
-        self.title: str = str()
-
-    def search(self):
-        card_counter = 0
-        for e_shop in E_SHOPS:
-            parsed_model = parse.quote(self.model)
-            if "morele.net" in e_shop:
-                print("Scanning morele.net")
-                url = e_shop.replace("__PLACEHOLDER__", parsed_model)
-                html = requests.get(url, headers=HEADERS).text
-                soup = BeautifulSoup(html, "html.parser")
-                cards = soup.find_all('a', class_="productLink")
-                card_set = set()
-                for card in cards:
-                    card_set.add(card)
-                for card in card_set:
-                    card_counter += 1
-                    self.url = f"https://www.morele.net{card.get('href')}"
-                    html = requests.get(self.url, headers=HEADERS).text
-                    soup = BeautifulSoup(html, "html.parser")
-                    self.title = soup.find("h1", class_="prod-name").text.strip()
-                    self.price = float(
-                        soup.find("div", class_="product-price").text.strip().replace(" ", "").removesuffix(
-                            "zł").replace(",", "."))
-                    self.shop = "Morele.net"
-                    target = VideoCard(self.model)
-                    target.price = self.price
-                    target.shop = self.shop
-                    target.title = self.title
-                    target.url = self.url
-
-                    TARGETS.append(target)
-                    print(f"Found: {card_counter} cards")
+    title: str
+    url: str
+    price: float
+    shop: str
 
 
-TARGETS: list[VideoCard] = []
+TARGETS: list[VideoCard] = list()
 
 if __name__ == '__main__':
-    vc = VideoCard("RTX 3050")
-    vc.search()
-    targets_sorted = sorted(TARGETS, key=lambda x: x.price)
-    for index, t in enumerate(targets_sorted):
-        print(f"[{index + 1}] {t.price} zł {t.title}")
-    error_counter = 0
-    while error_counter != 3:
-        try:
-            number = int(input(">>")) - 1
-            chosen_card = targets_sorted[number]
-            print("Your card:")
-            print(chosen_card.url)
-        except ValueError:
-            print("This is not a number")
-            error_counter += 1
+    searched_model = input("Model: ")
+    parsed_model = parse.quote(searched_model)
+    for e_shop in E_SHOPS:
+        cards_counter = 0
+        url = e_shop.replace("__PLACEHOLDER__", parsed_model)
+        html = get(url, headers=HEADERS).text
+        soup = BeautifulSoup(html, 'html.parser')
+        if "morele.net" in e_shop:
+            try:
+                shop = "MORELE.NET"
+                links = set()
+                for card in soup.find_all('a', class_="productLink"):
+                    links.add(f"https://www.morele.net{card.get('href')}")
+                for link in links:
+                    html = get(link, headers=HEADERS).text
+                    soup = BeautifulSoup(html, 'html.parser')
+                    try:
+                        title = soup.find("h1", "prod-name").text.strip()
+                        if "Karta graficzna " in title:
+                            title = title.removeprefix("Karta graficzna ")
+                    except AttributeError:
+                        break
+                    price_text = soup.find("div", class_="product-price").text.strip()
+                    try:
+                        price = float(price_text.removesuffix("zł").replace(' ', '').replace(',', '.'))
+                    except ValueError:
+                        price = 0.0
+
+                    TARGETS.append(VideoCard(title, link, price, shop))
+                    cards_counter += 1
+                    print(f"FOUND: {cards_counter} cards at {shop}")
+            except KeyboardInterrupt:
+                print("Skipping morele")
+                break
+        elif "x-kom.pl" in e_shop:
+            pass
+
+    TARGETS = sorted(TARGETS, key=lambda x: x.price)
+    for card in TARGETS:
+        print(card.title, card.price, card.shop)
